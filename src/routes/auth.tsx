@@ -1,0 +1,104 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import logo from "@/assets/hviagem-logo.png";
+
+export const Route = createFileRoute("/auth")({
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Entrar — HViagem" },
+      { name: "description", content: "Acesse o HViagem para lançar despesas corporativas da Hubvision." },
+      { property: "og:title", content: "HViagem — Prestação de Contas" },
+      { property: "og:description", content: "Ferramenta da Hubvision para lançar despesas de viagem." },
+    ],
+  }),
+  component: AuthPage,
+});
+
+function AuthPage() {
+  const navigate = useNavigate();
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) navigate({ to: "/nova" });
+    });
+  }, [navigate]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: window.location.origin },
+        });
+        if (error) throw error;
+      }
+      toast.success(mode === "login" ? "Bem-vindo!" : "Conta criada!");
+      navigate({ to: "/nova" });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+      <div className="w-full max-w-sm">
+        <div className="flex items-center gap-3 mb-8">
+          <img src={logo} alt="Logo HViagem" width={1024} height={1024} className="size-12 object-contain" />
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">HViagem</h1>
+            <p className="text-xs text-muted-foreground">Prestação de contas · Hubvision</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="text-lg font-semibold mb-1">
+            {mode === "login" ? "Entrar" : "Criar conta"}
+          </h2>
+          <p className="text-sm text-muted-foreground mb-5">
+            {mode === "login" ? "Acesse com seu e-mail corporativo" : "Cadastre seu e-mail para começar"}
+          </p>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">E-mail</Label>
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Senha</Label>
+              <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+            </div>
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? "Aguarde…" : mode === "login" ? "Entrar" : "Criar conta"}
+            </Button>
+          </form>
+          <button
+            type="button"
+            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+            className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground"
+          >
+            {mode === "login" ? "Não tem conta? Criar conta" : "Já tem conta? Entrar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// touch 1785318474
